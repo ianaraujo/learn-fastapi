@@ -33,7 +33,9 @@ def get_db():
         db.close()
 
 
-@app.get("/stakeholders/", response_model=list[schemas.StakeholderOut], tags=['stakeholders'])
+# stakeholders
+
+@app.get("/stakeholders/", response_model=list[schemas.StakeholderDisplay], tags=['stakeholders'])
 def get_stakeholders(search: str | None = None, skip: int = 0, limit: int = 5, db: Session = Depends(get_db)):
     query = db.query(models.Stakeholder)
     
@@ -46,8 +48,8 @@ def get_stakeholders(search: str | None = None, skip: int = 0, limit: int = 5, d
     return stakeholders
 
 
-@app.post("/stakeholders/", response_model=schemas.StakeholderOut, tags=['stakeholders'])
-def create_stakeholder(stakeholder: schemas.StakeholderIn, db: Session = Depends(get_db)):
+@app.post("/stakeholders/", response_model=schemas.StakeholderDisplay, tags=['stakeholders'])
+def create_stakeholder(stakeholder: schemas.StakeholderInput, db: Session = Depends(get_db)):
     is_created = db.query(models.Stakeholder) \
         .filter(models.Stakeholder.name == stakeholder.name) \
         .first()
@@ -64,7 +66,9 @@ def create_stakeholder(stakeholder: schemas.StakeholderIn, db: Session = Depends
     return stakeholder
 
 
-@app.get("/issues/", response_model=list[schemas.IssueOut], tags=['issues'])
+# issues
+
+@app.get("/issues/", response_model=list[schemas.IssueDisplay], tags=['issues'])
 def get_issues(search: str | None = None, skip: int = 0, limit: int = 5, db: Session = Depends(get_db)):
     query = db.query(models.Issue)
     
@@ -77,8 +81,8 @@ def get_issues(search: str | None = None, skip: int = 0, limit: int = 5, db: Ses
     return issues
 
 
-@app.post("/issues/", response_model=schemas.IssueOut, tags=['issues'])
-def create_issue(issue: schemas.IssueIn, db: Session = Depends(get_db)):
+@app.post("/issues/", response_model=schemas.IssueDisplay, tags=['issues'])
+def create_issue(issue: schemas.IssueInput, db: Session = Depends(get_db)):
     is_created = db.query(models.Issue) \
         .filter(models.Issue.name == issue.name) \
         .first()
@@ -94,3 +98,31 @@ def create_issue(issue: schemas.IssueIn, db: Session = Depends(get_db)):
 
     return issue
 
+
+# minutas
+
+@app.post("/minutas/", response_model=schemas.MinutaDisplay, tags=["minutas"])
+def get_minutas(minuta: schemas.MinutaInput, db: Session = Depends(get_db)):
+    minuta = models.Minuta(author=minuta.author, header=minuta.header, body=minuta.body)
+
+    for id in minuta.stakeholders:
+        stakeholder = db.query(models.Stakeholder).filter(models.Stakeholder.id == id).first()
+
+        if not stakeholder:
+            raise HTTPException(status_code=404, detail=f"Stakeholder with ID {id} not found")
+        
+        minuta.stakeholders.append(stakeholder)
+
+    for id in minuta.issues:
+        issue = db.query(models.Issue).filter(models.Issue.id == id).first()
+
+        if not issue:
+            raise HTTPException(status_code=404, detail=f"Issue with ID {id} not found")
+        
+        minuta.issues.append(issue)
+
+    db.add(minuta)
+    db.commit()
+    db.refresh(minuta)
+
+    return minuta
