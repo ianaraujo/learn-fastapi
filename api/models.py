@@ -1,9 +1,6 @@
-from sqlalchemy import Table, Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Table, Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
-
 from .database import Base
-
 
 # association tables
 
@@ -28,14 +25,12 @@ class Stakeholder(Base):
     name = Column(String, nullable=False)
     minutas = relationship("Minuta", secondary=stakeholder_minuta, back_populates="stakeholders")
 
-
 class Issue(Base):
     __tablename__ = "issues"
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
     minutas = relationship("Minuta", secondary=issue_minuta, back_populates="issues")
-
 
 class Minuta(Base):
     __tablename__ = "minutas"

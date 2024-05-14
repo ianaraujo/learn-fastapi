@@ -1,6 +1,4 @@
 from pydantic import BaseModel
-from datetime import datetime
-
 
 class StakeholderID(BaseModel):
     id: int
@@ -12,7 +10,6 @@ class StakeholderDisplay(BaseModel):
     id: int
     name: str
 
-
 class IssueID(BaseModel):
     id: int
 
@@ -22,7 +19,6 @@ class IssueInput(BaseModel):
 class IssueDisplay(BaseModel):
     id: int
     name: str
-
 
 class MinutaInput(BaseModel):
     author: str

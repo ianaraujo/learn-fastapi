@@ -5,12 +5,9 @@ from sqlalchemy.orm import Session
 from .database import SessionLocal, engine
 from . import models, schemas, crud
 
-
 models.Base.metadata.create_all(bind=engine)
 
-
 app = FastAPI()
-
 
 origins = [
     "http://localhost:8000"
@@ -24,14 +21,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
-
 
 # stakeholders
 
@@ -46,7 +41,6 @@ def get_stakeholders(search: str | None = None, skip: int = 0, limit: int = 5, d
     stakeholders = query.offset(skip).limit(limit).all()
 
     return stakeholders
-
 
 @app.post("/stakeholders/", response_model=schemas.StakeholderDisplay, tags=['stakeholders'])
 def create_stakeholder(stakeholder: schemas.StakeholderInput, db: Session = Depends(get_db)):
@@ -65,7 +59,6 @@ def create_stakeholder(stakeholder: schemas.StakeholderInput, db: Session = Depe
 
     return stakeholder
 
-
 # issues
 
 @app.get("/issues/", response_model=list[schemas.IssueDisplay], tags=['issues'])
@@ -80,7 +73,6 @@ def get_issues(search: str | None = None, skip: int = 0, limit: int = 5, db: Ses
 
     return issues
 
-
 @app.post("/issues/", response_model=schemas.IssueDisplay, tags=['issues'])
 def create_issue(issue: schemas.IssueInput, db: Session = Depends(get_db)):
     is_created = db.query(models.Issue) \
@@ -88,7 +80,7 @@ def create_issue(issue: schemas.IssueInput, db: Session = Depends(get_db)):
         .first()
     
     if is_created:
-        raise HTTPException(status_code=400, detail="Stakeholder already exists!")
+        raise HTTPException(status_code=400, detail="Issue already exists!")
     
     issue = models.Issue(name=issue.name)
     
@@ -98,31 +90,31 @@ def create_issue(issue: schemas.IssueInput, db: Session = Depends(get_db)):
 
     return issue
 
-
 # minutas
 
+@app.get("/minutas/", response_model=list[schemas.MinutaDisplay], tags=["minutas"])
+def get_minutas(skip: int = 0, limit: int = 5, db: Session = Depends(get_db)):
+    minutas = db.query(models.Minuta).offset(skip).limit(limit).all()
+    return minutas
+
 @app.post("/minutas/", response_model=schemas.MinutaDisplay, tags=["minutas"])
-def get_minutas(minuta: schemas.MinutaInput, db: Session = Depends(get_db)):
-    minuta = models.Minuta(author=minuta.author, header=minuta.header, body=minuta.body)
+def create_minuta(minuta: schemas.MinutaInput, db: Session = Depends(get_db)):
+    minuta_model = models.Minuta(author=minuta.author, header=minuta.header, body=minuta.body)
 
     for id in minuta.stakeholders:
         stakeholder = db.query(models.Stakeholder).filter(models.Stakeholder.id == id).first()
-
         if not stakeholder:
             raise HTTPException(status_code=404, detail=f"Stakeholder with ID {id} not found")
-        
-        minuta.stakeholders.append(stakeholder)
+        minuta_model.stakeholders.append(stakeholder)
 
     for id in minuta.issues:
         issue = db.query(models.Issue).filter(models.Issue.id == id).first()
-
         if not issue:
             raise HTTPException(status_code=404, detail=f"Issue with ID {id} not found")
-        
-        minuta.issues.append(issue)
+        minuta_model.issues.append(issue)
 
-    db.add(minuta)
+    db.add(minuta_model)
     db.commit()
-    db.refresh(minuta)
+    db.refresh(minuta_model)
 
-    return minuta
+    return minuta_model
