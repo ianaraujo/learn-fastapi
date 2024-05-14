@@ -1,10 +1,9 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_
 
 from .database import SessionLocal, engine
-from . import models, schemas
+from . import models, schemas, crud
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -33,164 +32,40 @@ def get_db():
 
 @app.get("/stakeholders", response_model=list[schemas.Stakeholder], tags=['stakeholders'])
 def get_stakeholders(search: str | None = None, skip: int = 0, limit: int = 5, db: Session = Depends(get_db)):
-    query = db.query(models.Stakeholder)
-    
-    if search:
-        search = search.lower()
-        query = query.filter(models.Stakeholder.name.ilike(f"%{search}%"))
-    
-    stakeholders = query.offset(skip).limit(limit).all()
-    
-    return stakeholders
+    return crud.get_stakeholders(db, search, skip, limit)
 
 @app.post("/stakeholders", response_model=schemas.Stakeholder, tags=['stakeholders'])
 def create_stakeholder(stakeholder: schemas.StakeholderCreate, db: Session = Depends(get_db)):
-    db_stakeholder = db.query(models.Stakeholder).filter(models.Stakeholder.name == stakeholder.name).first()
-    
-    if db_stakeholder:
-        raise HTTPException(status_code=400, detail="Stakeholder already exists!")
-    
-    new_stakeholder = models.Stakeholder(name=stakeholder.name)
-    
-    db.add(new_stakeholder)
-    db.commit()
-    db.refresh(new_stakeholder)
-    
-    return new_stakeholder
+    return crud.create_stakeholder(db, stakeholder)
 
 # issue
 
 @app.get("/issues", response_model=list[schemas.Issue], tags=['issues'])
 def get_issues(search: str | None = None, skip: int = 0, limit: int = 5, db: Session = Depends(get_db)):
-    query = db.query(models.Issue)
-
-    if search:
-        search = search.lower()
-        query = query.filter(models.Issue.name.ilike(f"%{search}%"))
-    
-    issues = query.offset(skip).limit(limit).all()
-    
-    return issues
+    return crud.get_issues(db, search, skip, limit)
 
 @app.post("/issues", response_model=schemas.Issue, tags=['issues'])
 def create_issue(issue: schemas.IssueCreate, db: Session = Depends(get_db)):
-    db_issue = db.query(models.Issue).filter(models.Issue.name == issue.name).first()
-    
-    if db_issue:
-        raise HTTPException(status_code=400, detail="Issue already exists!")
-   
-    new_issue = models.Issue(name=issue.name)
-    
-    db.add(new_issue)
-    db.commit()
-    db.refresh(new_issue)
-    
-    return new_issue
+    return crud.create_issue(db, issue)
 
 # minuta
 
 @app.post("/minutas", response_model=schemas.Minuta, tags=["minutas"])
 def create_minuta(minuta: schemas.MinutaCreate, db: Session = Depends(get_db)):
-    new_minuta = models.Minuta(author=minuta.author, header=minuta.header, body=minuta.body)
-
-    for stakeholder_id in minuta.stakeholders:
-        stakeholder = db.query(models.Stakeholder).filter(models.Stakeholder.id == stakeholder_id).first()
-        
-        if not stakeholder:
-            raise HTTPException(status_code=404, detail=f"Stakeholder with ID {stakeholder_id} not found")
-        
-        new_minuta.stakeholders.append(stakeholder)
-
-    for issue_id in minuta.issues:
-        issue = db.query(models.Issue).filter(models.Issue.id == issue_id).first()
-        
-        if not issue:
-            raise HTTPException(status_code=404, detail=f"Issue with ID {issue_id} not found")
-        
-        new_minuta.issues.append(issue)
-
-    db.add(new_minuta)
-    db.commit()
-    db.refresh(new_minuta)
-
-    return new_minuta
-
+    return crud.create_minuta(db, minuta)
 
 @app.get("/minutas", response_model=list[schemas.Minuta], tags=["minutas"])
 def get_minutas(search: str | None = None, skip: int = 0, limit: int = 5, db: Session = Depends(get_db)):
-
-    query = db.query(models.Minuta)
-
-    if search:
-        search = f"%{search.lower()}%"
-
-        query = query \
-            .join(models.Minuta.stakeholders) \
-            .join(models.Minuta.issues) \
-            .filter(or_(
-                    models.Minuta.header.ilike(search),
-                    models.Minuta.body.ilike(search),
-                    models.Stakeholder.name.ilike(search),
-                    models.Issue.name.ilike(search),
-                )
-            ).distinct()
-
-    minutas = query.offset(skip).limit(limit).all()
-
-    return minutas
-
+    return crud.get_minutas(db, search, skip, limit)
 
 @app.get("/minutas/{minuta_id}", response_model=schemas.Minuta, tags=["minutas"])
 def read_minuta(minuta_id: int, db: Session = Depends(get_db)):
-    minuta = db.query(models.Minuta).filter(models.Minuta.id == minuta_id).first()
-
-    if not minuta:
-        raise HTTPException(status_code=404, detail=f"Minuta not found")
-    
-    return minuta
+    return crud.get_minuta(db, minuta_id)
 
 @app.put("/minutas/{minuta_id}", response_model=schemas.Minuta, tags=["minutas"])
 def update_minuta(minuta_id: int, minuta: schemas.MinutaCreate, db: Session = Depends(get_db)):
-    db_minuta = db.query(models.Minuta).filter(models.Minuta.id == minuta_id).first()
-
-    if not db_minuta:
-        raise HTTPException(status_code=404, detail=f"Minuta not found")
-    
-    db_minuta.author = minuta.author
-    db_minuta.header = minuta.header
-    db_minuta.body = minuta.body
-    db_minuta.stakeholders.clear()
-    db_minuta.issues.clear()
-
-    for stakeholder_id in minuta.stakeholders:
-        stakeholder = db.query(models.Stakeholder).filter(models.Stakeholder.id == stakeholder_id).first()
-        
-        if not stakeholder:
-            raise HTTPException(status_code=404, detail=f"Stakeholder with ID {stakeholder_id} not found")
-        
-        db_minuta.stakeholders.append(stakeholder)
-
-    for issue_id in minuta.issues:
-        issue = db.query(models.Issue).filter(models.Issue.id == issue_id).first()
-        
-        if not issue:
-            raise HTTPException(status_code=404, detail=f"Issue with ID {issue_id} not found")
-        
-        db_minuta.issues.append(issue)
-    
-    db.commit()
-    db.refresh(db_minuta)
-
-    return db_minuta
+    return crud.update_minuta(db, minuta_id, minuta)
 
 @app.delete("/minutas/{minuta_id}", response_model=schemas.Minuta, tags=["minutas"])
 def delete_minuta(minuta_id: int, db: Session = Depends(get_db)):
-    db_minuta = db.query(models.Minuta).filter(models.Minuta.id == minuta_id).first()
-    
-    if not db_minuta:
-        raise HTTPException(status_code=404, detail="Minuta not found")
-    
-    db.delete(db_minuta)
-    db.commit()
-
-    return db_minuta
+    return crud.delete_minuta(db, minuta_id)
