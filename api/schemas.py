@@ -1,36 +1,41 @@
 from pydantic import BaseModel
+from typing import List, Optional
 
-class StakeholderID(BaseModel):
-    id: int
 
-class StakeholderInput(BaseModel):
+# stakeholder
+
+class StakeholderBase(BaseModel):
     name: str
 
-class StakeholderDisplay(BaseModel):
+class StakeholderCreate(StakeholderBase):
+    pass
+
+class Stakeholder(StakeholderBase):
     id: int
+
+# issue
+
+class IssueBase(BaseModel):
     name: str
 
-class IssueID(BaseModel):
+class IssueCreate(IssueBase):
+    pass
+
+class Issue(IssueBase):
     id: int
 
-class IssueInput(BaseModel):
-    name: str
+# minuta
 
-class IssueDisplay(BaseModel):
-    id: int
-    name: str
-
-class MinutaInput(BaseModel):
+class MinutaBase(BaseModel):
     author: str
     header: str
     body: str
+
+class MinutaCreate(MinutaBase):
     stakeholders: list[int]
     issues: list[int]
 
-class MinutaDisplay(BaseModel):
+class Minuta(MinutaBase):
     id: int
-    author: str
-    header: str
-    body: str
-    stakeholders: list[StakeholderDisplay]
-    issues: list[IssueDisplay]
+    stakeholders: list[Stakeholder] = []
+    issues: list[Issue] = []
