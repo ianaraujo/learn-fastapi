@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 
 from .database import SessionLocal, engine
 from . import models, schemas
@@ -126,7 +126,7 @@ def get_minutas(search: str | None = None, skip: int = 0, limit: int = 5, db: Se
 
         query = query \
             .join(models.Minuta.stakeholders) \
-            .join(models.Minuta.stakeholders) \
+            .join(models.Minuta.issues) \
             .filter(or_(
                     models.Minuta.header.ilike(search),
                     models.Minuta.body.ilike(search),
